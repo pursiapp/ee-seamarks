@@ -102,6 +102,11 @@ def parse_single_mark(item: ET.Element) -> dict[str, Any] | None:
     except ValueError:
         return None
 
+    # Coordinates are in degrees × 60,000,000 (integer format)
+    if lat > 180 or lon > 180:
+        lat /= 60000000.0
+        lon /= 60000000.0
+
     seamark_type = TYPE_MAP.get(tyyp, "buoy_lateral") if tyyp else "buoy_lateral"
 
     light_char = text("ValoKarakteristika") or text("LightChar") or ""
