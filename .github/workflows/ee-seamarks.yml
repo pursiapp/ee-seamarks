@@ -1,0 +1,48 @@
+name: Generate Estonian Seamarks PMTiles
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y tippecanoe
+          pip install requests lxml
+
+      - name: Fetch Estonian navigation marks
+        run: python3 scripts/fetch_ee_seamarks.py
+
+      - name: Generate PMTiles
+        run: |
+          tippecanoe --output=ee_seamarks.pmtiles \
+            --layer=seamarks \
+            --minimum-zoom=0 --maximum-zoom=14 \
+            --drop-densest-as-needed \
+            ee_seamarks.geojson
+
+      - name: Upload to Release
+        run: |
+          TAG="ee-seamarks"
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" ee_seamarks.pmtiles --clobber
+          else
+            gh release create "$TAG" ee_seamarks.pmtiles \
+              --title "Estonian Official Seamarks" \
+              --notes "Transpordiamet NMA avaandmed (CC BY 4.0). Päivitetty kuukausittain."
+          fi
