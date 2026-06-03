@@ -58,13 +58,25 @@ TYPE_MAP: dict[str, tuple[str, dict[str, str]]] = {
     "Tulepaak, sihi alumine": ("beacon_lateral", {}),
     "Tulepaak, sihi ülemine": ("beacon_lateral", {}),
 
-    "Parema külje poi": ("buoy_lateral", {"seamark:buoy_lateral:category": "starboard"}),
-    "Vasaku külje poi": ("buoy_lateral", {"seamark:buoy_lateral:category": "port"}),
+    "Parema külje poi": ("buoy_lateral", {
+        "seamark:buoy_lateral:category": "starboard",
+        "seamark:buoy_lateral:colour": "green",
+    }),
+    "Vasaku külje poi": ("buoy_lateral", {
+        "seamark:buoy_lateral:category": "port",
+        "seamark:buoy_lateral:colour": "red",
+    }),
     "Teljepoi": ("buoy_safe_water", {}),
     "Eraldiasuva ohu poi": ("buoy_isolated_danger", {}),
 
-    "Parema külje tooder": ("buoy_lateral", {"seamark:buoy_lateral:category": "starboard"}),
-    "Vasaku külje tooder": ("buoy_lateral", {"seamark:buoy_lateral:category": "port"}),
+    "Parema külje tooder": ("buoy_lateral", {
+        "seamark:buoy_lateral:category": "starboard",
+        "seamark:buoy_lateral:colour": "green",
+    }),
+    "Vasaku külje tooder": ("buoy_lateral", {
+        "seamark:buoy_lateral:category": "port",
+        "seamark:buoy_lateral:colour": "red",
+    }),
     "Teljetooder": ("buoy_safe_water", {}),
     "Eriotstarbeline tooder": ("buoy_special_purpose", {}),
     "Eraldiasuva ohu tooder": ("buoy_isolated_danger", {}),
@@ -82,6 +94,19 @@ TYPE_MAP: dict[str, tuple[str, dict[str, str]]] = {
     "Päevamärk": ("daymark", {}),
     "Päevamärk, sihi alumine": ("daymark", {}),
     "Päevamärk, sihi ülemine": ("daymark", {}),
+}
+
+# S-57 colour code → IALA colour name mapping
+COLOUR_MAP: dict[str, str] = {
+    "W": "white",
+    "R": "red",
+    "G": "green",
+    "Y": "yellow",
+    "B": "black",
+    "O": "orange",
+    "V": "violet",
+    "A": "amber",
+    "M": "magenta",
 }
 
 
@@ -151,14 +176,25 @@ def parse_single_mark(item: ET.Element) -> dict[str, Any] | None:
     range_nm = text("Nähtavus") or text("Range") or ""
     mark_id = text("NM_EstNo") or text("ID") or text("Number") or ""
 
+    # Try to read beacon/structure colour from SOAP (separate from light colour)
+    latika_vari = text("LatikaVari") or text("LateralColour") or text("Vari") or text("Colour") or text("Color") or text("Värv") or ""
+
     props: dict[str, Any] = {"seamark:type": seamark_type}
     props.update(extra_props)
     if nimi:
         props["seamark:name"] = nimi
+
+    # Set beacon_lateral:colour if available and not already set by TYPE_MAP
+    if seamark_type == "beacon_lateral" and "seamark:beacon_lateral:colour" not in extra_props:
+        if latika_vari:
+            props["seamark:beacon_lateral:colour"] = COLOUR_MAP.get(latika_vari, latika_vari.lower())
+        elif light_colour:
+            props["seamark:beacon_lateral:colour"] = COLOUR_MAP.get(light_colour, light_colour.lower())
+
     if light_char:
         props["seamark:light:character"] = light_char
     if light_colour:
-        props["seamark:light:colour"] = light_colour
+        props["seamark:light:colour"] = COLOUR_MAP.get(light_colour, light_colour.lower())
     if light_period:
         props["seamark:light:period"] = light_period
     if height:
