@@ -46,13 +46,42 @@ SOAP_REQUEST = """<?xml version="1.0" encoding="UTF-8"?>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>"""
 
-TYPE_MAP: dict[str, str] = {
-    "Tuletorn": "light_major",
-    "Tulepaak": "beacon_lateral",
-    "Poi": "buoy_lateral",
-    "Tooder": "buoy_lateral",
-    "Sihi alumine": "leading_line",
-    "Sihi ülemine": "leading_line",
+# S-57/IALA type mapping for Estonian NMA types.
+# Key = TypeName field value from SOAP response.
+# Value = (seamark:type, extra properties dict)
+TYPE_MAP: dict[str, tuple[str, dict[str, str]]] = {
+    "Tuletorn": ("light_major", {}),
+    "Tuletorn, sihi alumine": ("leading_line", {}),
+    "Tuletorn, sihi ülemine": ("leading_line", {}),
+    "Tuletorn, sihi alumine/ülemine": ("leading_line", {}),
+    "Tulepaak": ("beacon_lateral", {}),
+    "Tulepaak, sihi alumine": ("beacon_lateral", {}),
+    "Tulepaak, sihi ülemine": ("beacon_lateral", {}),
+
+    "Parema külje poi": ("buoy_lateral", {"seamark:buoy_lateral:category": "starboard"}),
+    "Vasaku külje poi": ("buoy_lateral", {"seamark:buoy_lateral:category": "port"}),
+    "Teljepoi": ("buoy_safe_water", {}),
+    "Eraldiasuva ohu poi": ("buoy_isolated_danger", {}),
+
+    "Parema külje tooder": ("buoy_lateral", {"seamark:buoy_lateral:category": "starboard"}),
+    "Vasaku külje tooder": ("buoy_lateral", {"seamark:buoy_lateral:category": "port"}),
+    "Teljetooder": ("buoy_safe_water", {}),
+    "Eriotstarbeline tooder": ("buoy_special_purpose", {}),
+    "Eraldiasuva ohu tooder": ("buoy_isolated_danger", {}),
+
+    "Põhjapoi": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "north"}),
+    "Lõunapoi": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "south"}),
+    "Idapoi": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "east"}),
+    "Läänepoi": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "west"}),
+
+    "Põhjatooder": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "north"}),
+    "Lõunatooder": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "south"}),
+    "Idatooder": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "east"}),
+    "Läänetooder": ("buoy_cardinal", {"seamark:buoy_cardinal:category": "west"}),
+
+    "Päevamärk": ("daymark", {}),
+    "Päevamärk, sihi alumine": ("daymark", {}),
+    "Päevamärk, sihi ülemine": ("daymark", {}),
 }
 
 
@@ -107,7 +136,13 @@ def parse_single_mark(item: ET.Element) -> dict[str, Any] | None:
         lat /= 60000000.0
         lon /= 60000000.0
 
-    seamark_type = TYPE_MAP.get(tyyp, "buoy_lateral") if tyyp else "buoy_lateral"
+    seamark_type: str
+    extra_props: dict[str, str] = {}
+    if tyyp in TYPE_MAP:
+        seamark_type, extra_props = TYPE_MAP[tyyp]
+    else:
+        seamark_type = "buoy_lateral"
+        extra_props = {}
 
     light_char = text("ValoKarakteristika") or text("LightChar") or ""
     light_colour = text("ValoVari") or text("LightColour") or ""
@@ -117,6 +152,7 @@ def parse_single_mark(item: ET.Element) -> dict[str, Any] | None:
     mark_id = text("NM_EstNo") or text("ID") or text("Number") or ""
 
     props: dict[str, Any] = {"seamark:type": seamark_type}
+    props.update(extra_props)
     if nimi:
         props["seamark:name"] = nimi
     if light_char:
